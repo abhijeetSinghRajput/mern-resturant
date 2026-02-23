@@ -95,7 +95,7 @@ const FileDropZone = ({ onImageSelect }) => {
         </div>
       </FileDrop>
 
-      <div className="max-h-[300px] grid grid-cols-3 gap-1 overflow-auto">
+      <div className="max-h-[320px] grid grid-cols-3 sm:grid-cols-4 gap-1 overflow-auto">
         {isUploading && <Skeleton className={"aspect-square"} />}
         {isLoadingImages
           ? skeletons

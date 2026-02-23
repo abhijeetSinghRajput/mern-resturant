@@ -8,7 +8,7 @@ import SignupPage from "./pages/auth/SignupPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import AdminLayout from "./pages/admin/adminLayout";
 import AdminDashboard from "./pages/admin/Index";
-import UserManagementPage from "./pages/admin/UserManagementPage";
+import UserManagementPage from "./pages/admin/user-management/UserManagementPage";
 import OrdersPage from "./pages/admin/OrdersPage";
 import MenuPage from "./pages/admin/MenuPage";
 import UserProfilePage from "./pages/admin/UserProfilePage";

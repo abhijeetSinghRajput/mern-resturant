@@ -29,4 +29,7 @@ export const ENV = {
     GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
     CLIENT_URL: process.env.CLIENT_URL,
     CLIENT_URLS: requireEnv("CLIENT_URLS"),
+
+    RAZORPAY_KEY_ID: requireEnv("RAZORPAY_KEY_ID"),
+    RAZORPAY_KEY_SECRET: requireEnv("RAZORPAY_KEY_SECRET"),
 };
