@@ -6,6 +6,27 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
 
+const ACCOUNT_STATUS_QUERY_MAP = {
+  emailVerified: { isEmailVerified: true },
+  emailUnVerified: { isEmailVerified: false },
+  blocked: { isBlocked: true },
+  active: { isBlocked: false },
+  googleLinked: { googleId: { $exists: true, $ne: null } },
+  subscribed: { subscriptionId: { $exists: true, $ne: null } },
+  nonSubscribed: {
+    $or: [
+      { subscriptionId: { $exists: false } },
+      { subscriptionId: null },
+      { subscriptionId: "" },
+    ],
+  },
+};
+
+const USER_TYPE_QUERY_MAP = {
+  admin: { role: "admin" },
+  user: { role: "user" },
+};
+
 const formatUser = (user) => {
   return {
     _id: user._id,
@@ -25,11 +46,42 @@ export const listUsers = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const search = req.query.search?.trim().toLowerCase() || "";
+    const accountStatus = req.query.accountStatus || "all";
+    const userType = req.query.userType || "all";
     const skip = (page - 1) * limit;
 
+    const queryConditions = [];
+
+    if (search) {
+      queryConditions.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    const accountStatusQuery = ACCOUNT_STATUS_QUERY_MAP[accountStatus];
+    if (accountStatusQuery) {
+      queryConditions.push(accountStatusQuery);
+    }
+
+    const userTypeQuery = USER_TYPE_QUERY_MAP[userType];
+    if (userTypeQuery) {
+      queryConditions.push(userTypeQuery);
+    }
+
+    const query =
+      queryConditions.length === 0
+        ? {}
+        : queryConditions.length === 1
+          ? queryConditions[0]
+          : { $and: queryConditions };
+
     const [totalItems, users] = await Promise.all([
-      User.countDocuments(),
-      User.find()
+      User.countDocuments(query),
+      User.find(query)
         .select("-password")
         .sort({ createdAt: -1 })
         .skip(skip)

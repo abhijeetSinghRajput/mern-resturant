@@ -18,12 +18,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,8 +38,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Loader } from "lucide-react";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -69,6 +65,7 @@ const UserManagementPage = () => {
     changePassword,
     uploadAvatar,
     bulkAction,
+    checkEmailAvailability,
   } = useAdminUserStore();
 
   const [page, setPage] = useState(1);
@@ -82,10 +79,30 @@ const UserManagementPage = () => {
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
   const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false);
   const [bulkActionType, setBulkActionType] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [accountStatusFilter, setAccountStatusFilter] = useState("all");
+  const [userTypeFilter, setUserTypeFilter] = useState("all");
+  const [emailAvailability, setEmailAvailability] = useState({
+    status: "idle",
+    message: "",
+  });
 
   useEffect(() => {
-    fetchUsers(page, DEFAULT_PAGE_SIZE);
-  }, [fetchUsers, page]);
+    fetchUsers(
+      page,
+      DEFAULT_PAGE_SIZE,
+      debouncedSearchTerm,
+      accountStatusFilter,
+      userTypeFilter,
+    );
+  }, [
+    fetchUsers,
+    page,
+    debouncedSearchTerm,
+    accountStatusFilter,
+    userTypeFilter,
+  ]);
 
   useEffect(() => {
     if (!selectedUser) {
@@ -103,9 +120,90 @@ const UserManagementPage = () => {
     setAvatarFile(null);
   }, [selectedUser]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim().toLowerCase());
+      setPage(1);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [accountStatusFilter, userTypeFilter]);
+
+  useEffect(() => {
+    if (!isCreateMode) {
+      setEmailAvailability({ status: "idle", message: "" });
+      return;
+    }
+
+    const email = String(formState.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email) {
+      setEmailAvailability({ status: "idle", message: "" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailAvailability({
+        status: "invalid",
+        message: "Enter a valid email address",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setEmailAvailability({ status: "checking", message: "Checking email..." });
+
+    const timer = setTimeout(async () => {
+      const result = await checkEmailAvailability(email);
+      if (cancelled) {
+        return;
+      }
+
+      if (result.available === true) {
+        setEmailAvailability({
+          status: "available",
+          message: result.message || "Email is available",
+        });
+        return;
+      }
+
+      if (result.available === false) {
+        setEmailAvailability({
+          status: "unavailable",
+          message: result.message || "Email is already in use",
+        });
+        return;
+      }
+
+      setEmailAvailability({
+        status: "error",
+        message: result.message || "Failed to check email",
+      });
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [checkEmailAvailability, formState.email, isCreateMode]);
+
+  useEffect(() => {
+    setSelectedUserIds((prev) => {
+      const userIdSet = new Set(users.map((user) => user._id));
+      const next = new Set([...prev].filter((id) => userIdSet.has(id)));
+      return next;
+    });
+  }, [users]);
+
   const totalPages = useMemo(
     () => pagination.totalPages || 1,
-    [pagination.totalPages]
+    [pagination.totalPages],
   );
 
   const handleRowClick = (user) => {
@@ -138,6 +236,21 @@ const UserManagementPage = () => {
 
       if (!formState.fullName || !formState.email) {
         toast.error("Full name and email are required");
+        return;
+      }
+
+      if (emailAvailability.status === "checking") {
+        toast.error("Please wait for email availability check");
+        return;
+      }
+
+      if (emailAvailability.status === "unavailable") {
+        toast.error("Email is already in use");
+        return;
+      }
+
+      if (emailAvailability.status === "invalid") {
+        toast.error("Please enter a valid email address");
         return;
       }
 
@@ -227,11 +340,16 @@ const UserManagementPage = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedUserIds.size === users.length) {
-      setSelectedUserIds(new Set());
-    } else {
-      setSelectedUserIds(new Set(users.map((u) => u._id)));
-    }
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+
+      if (next.size === users.length && users.length > 0) {
+        return new Set();
+      }
+
+      users.forEach((user) => next.add(user._id));
+      return next;
+    });
   };
 
   const handleBulkAction = async (action) => {
@@ -269,12 +387,77 @@ const UserManagementPage = () => {
         </Button>
       </div>
 
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Input
+            placeholder="Search by name or email"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            className="pr-10"
+          />
+          {loading.users && (
+            <Loader2 className="absolute right-3 top-2.5 size-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Select
+            value={accountStatusFilter}
+            onValueChange={setAccountStatusFilter}
+          >
+            <div className="relative">
+              <Label
+                htmlFor="account-status-filter"
+                className="absolute bg-background text-xs px-1.5 py-0.5 top-0 left-1 -translate-y-1/2 text-muted-foreground"
+              >
+                Account Status
+              </Label>
+              <SelectTrigger id="account-status-filter" className="w-44">
+                <SelectValue placeholder="Account Status" />
+              </SelectTrigger>
+            </div>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="emailVerified">Email Verified</SelectItem>
+              <SelectItem value="emailUnVerified">Email UnVerified</SelectItem>
+              <SelectItem value="blocked">Blocked</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="googleLinked">Google Linked</SelectItem>
+              <SelectItem value="subscribed">Subscribeder</SelectItem>
+              <SelectItem value="nonSubscribed">Non-Subscribeder</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
+            <div className="relative">
+              <Label
+                htmlFor="user-type-filter"
+                className="absolute bg-background text-xs px-1.5 py-0.5 top-0 left-1 -translate-y-1/2 text-muted-foreground"
+              >
+                User Type
+              </Label>
+              <SelectTrigger id="user-type-filter" className="w-28">
+                <SelectValue placeholder="User Type" />
+              </SelectTrigger>
+            </div>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {selectedUserIds.size > 0 && (
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-sm font-medium">{selectedUserIds.size} user(s) selected</p>
-              <p className="text-xs text-muted-foreground">Choose an action to perform on selected users</p>
+              <p className="text-sm font-medium">
+                {selectedUserIds.size} user(s) selected
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Choose an action to perform on selected users
+              </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -316,7 +499,7 @@ const UserManagementPage = () => {
                 disabled={loading.bulkAction}
                 className="size-8"
               >
-                <Trash2/> 
+                <Trash2 />
               </Button>
               <Button
                 size="sm"
@@ -338,7 +521,9 @@ const UserManagementPage = () => {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedUserIds.size === users.length && users.length > 0}
+                    checked={
+                      selectedUserIds.size === users.length && users.length > 0
+                    }
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -368,10 +553,7 @@ const UserManagementPage = () => {
                 </TableRow>
               ) : (
                 users.map((user) => (
-                  <TableRow
-                    key={user._id}
-                    className="hover:bg-muted/40"
-                  >
+                  <TableRow key={user._id} className="hover:bg-muted/40">
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={selectedUserIds.has(user._id)}
@@ -384,7 +566,10 @@ const UserManagementPage = () => {
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="size-9">
-                          <AvatarImage src={user.avatar || ""} alt={user.fullName} />
+                          <AvatarImage
+                            src={user.avatar || ""}
+                            alt={user.fullName}
+                          />
                           <AvatarFallback>
                             {(user.fullName || user.email || "U")[0]}
                           </AvatarFallback>
@@ -403,7 +588,9 @@ const UserManagementPage = () => {
                       className="cursor-pointer"
                       onClick={() => handleRowClick(user)}
                     >
-                      <Badge variant={user.role === "admin" ? "" : "outline"}>{user.role}</Badge>
+                      <Badge variant={user.role === "admin" ? "" : "outline"}>
+                        {user.role}
+                      </Badge>
                     </TableCell>
                     <TableCell
                       className="cursor-pointer"
@@ -471,11 +658,13 @@ const UserManagementPage = () => {
             <Tabs defaultValue="general" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="general">General</TabsTrigger>
-                {!isCreateMode && <TabsTrigger value="danger">Danger</TabsTrigger>}
+                {!isCreateMode && (
+                  <TabsTrigger value="danger">Danger</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="general" className="space-y-6 pt-6">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-medium uppercase text-muted-foreground">
                       Full Name
@@ -490,11 +679,36 @@ const UserManagementPage = () => {
                     <label className="text-xs font-medium uppercase text-muted-foreground">
                       Email
                     </label>
-                    <Input
-                      value={formState.email}
-                      onChange={handleInputChange("email")}
-                      placeholder="email@example.com"
-                    />
+                    <div className="relative">
+                      <Input
+                        value={formState.email}
+                        onChange={handleInputChange("email")}
+                        placeholder="email@example.com"
+                        className={
+                          isCreateMode &&
+                          emailAvailability.status === "checking"
+                            ? "pr-10"
+                            : ""
+                        }
+                      />
+                      {isCreateMode &&
+                        emailAvailability.status === "checking" && (
+                          <Loader2 className="absolute right-3 top-3 size-4 animate-spin text-muted-foreground" />
+                        )}
+                    </div>
+                    {isCreateMode && emailAvailability.status !== "idle" && (
+                      <p
+                        className={`text-xs ${
+                          emailAvailability.status === "available"
+                            ? "text-emerald-600"
+                            : emailAvailability.status === "checking"
+                              ? "text-muted-foreground"
+                              : "text-destructive"
+                        }`}
+                      >
+                        {emailAvailability.message}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -532,7 +746,10 @@ const UserManagementPage = () => {
                   <p className="text-sm font-medium">Profile Photo</p>
                   <div className="flex items-center gap-4">
                     <Avatar className="size-14">
-                      <AvatarImage src={formState.avatar || ""} alt={formState.fullName} />
+                      <AvatarImage
+                        src={formState.avatar || ""}
+                        alt={formState.fullName}
+                      />
                       <AvatarFallback>
                         {(formState.fullName || formState.email || "U")[0]}
                       </AvatarFallback>
@@ -600,7 +817,9 @@ const UserManagementPage = () => {
                       onClick={handlePasswordChange}
                       disabled={loading.changePassword}
                     >
-                      {loading.changePassword ? "Updating..." : "Change Password"}
+                      {loading.changePassword
+                        ? "Updating..."
+                        : "Change Password"}
                     </Button>
                   </div>
 
@@ -641,7 +860,8 @@ const UserManagementPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this user?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The user will be permanently removed.
+              This action cannot be undone. The user will be permanently
+              removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -659,7 +879,10 @@ const UserManagementPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={bulkActionDialogOpen} onOpenChange={setBulkActionDialogOpen}>
+      <AlertDialog
+        open={bulkActionDialogOpen}
+        onOpenChange={setBulkActionDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -671,8 +894,11 @@ const UserManagementPage = () => {
               {bulkActionType === "DELETE" ? (
                 <div className="space-y-2">
                   <p>
-                    This action cannot be undone. You are about to permanently delete{" "}
-                    <span className="font-semibold text-destructive">{selectedUserIds.size}</span>{" "}
+                    This action cannot be undone. You are about to permanently
+                    delete{" "}
+                    <span className="font-semibold text-destructive">
+                      {selectedUserIds.size}
+                    </span>{" "}
                     {selectedUserIds.size === 1 ? "user" : "users"}.
                   </p>
                   <p>Are you sure?</p>
@@ -681,8 +907,12 @@ const UserManagementPage = () => {
                 <div className="space-y-2">
                   <p>
                     You are about to{" "}
-                    <span className="font-semibold">{bulkActionType?.replace(/_/g, " ").toLowerCase()}</span>{" "}
-                    <span className="font-semibold text-primary">{selectedUserIds.size}</span>{" "}
+                    <span className="font-semibold">
+                      {bulkActionType?.replace(/_/g, " ").toLowerCase()}
+                    </span>{" "}
+                    <span className="font-semibold text-primary">
+                      {selectedUserIds.size}
+                    </span>{" "}
                     {selectedUserIds.size === 1 ? "user" : "users"}.
                   </p>
                   <p>Please confirm this action.</p>

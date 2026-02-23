@@ -70,6 +70,10 @@ const AuthUserDropdown = () => {
     );
   }
 
+  if (!authUser) {
+    return <Button onClick={() => navigate("/login")}>Login</Button>;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

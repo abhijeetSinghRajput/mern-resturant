@@ -12,12 +12,12 @@ import { LabledInput } from "./ui/labeled-input";
 import GoogleIcon from "./icons/Icons";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { useEffect, useState } from "react";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export function LoginForm({ className, initialError = "", ...props }) {
   const navigate = useNavigate();
   const { handleGoogleLogin } = useGoogleAuth();
+  const login = useAuthStore((state) => state.login);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError);
   const [formData, setFormData] = useState({
@@ -39,25 +39,7 @@ export function LoginForm({ className, initialError = "", ...props }) {
     setError("");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        setError(data.message || "Invalid credentials");
-        return;
-      }
-
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
-      }
-
+      await login(formData);
       navigate("/");
     } catch (err) {
       setError(err.message || "Login failed");
