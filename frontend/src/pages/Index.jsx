@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useProductStore } from "@/stores/useProductStore";
-import { Search, ShoppingCart } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import Footer from "@/components/Footer";
 import FoodFeatureSection from "@/components/FoodFeatureSection";
@@ -11,14 +9,12 @@ import CategoryFilterSection from "@/components/CategoryFilterSection";
 import { CartDrawer } from "@/components/CartDrawer";
 
 export default function FoodOrderingApp() {
-  const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const {
     products,
     fetchProducts,
     getCart,
-    searchProducts,
     fetchCategories,
   } = useProductStore();
 
@@ -28,13 +24,9 @@ export default function FoodOrderingApp() {
     fetchCategories();
   }, []);
 
-  // Filter products based on search and category
+  // Filter products based on category
   const filteredProducts = (() => {
     let filtered = products;
-
-    if (search.trim()) {
-      filtered = searchProducts(search);
-    }
 
     if (selectedCategory) {
       filtered = filtered.filter((p) => p.categoryId?._id === selectedCategory);
@@ -45,7 +37,7 @@ export default function FoodOrderingApp() {
 
   const cartData = getCart();
   const cartCount = cartData.itemCount;
-  const cartTotal = cartData.total;
+  const cartTotal = cartData.subtotal;
 
   return (
     <div className="min-h-screen bg-background text-foreground font-[DM_Sans]">
@@ -53,26 +45,12 @@ export default function FoodOrderingApp() {
       <AppHeader onCartClick={() => setCartOpen(true)} />
 
       <div className="max-w-[1200px] mx-auto px-6 relative z-10">
-        {/* SEARCH */}
-        <section className="mb-10">
-          <div className="relative max-w-[560px]">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-muted-foreground" />
-            <Input
-              className="h-12 rounded-full pl-14 bg-input/20"
-              placeholder="Search dishes, restaurants, cuisines…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </section>
-
         <CategoryFilterSection
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
         <FoodFeatureSection
           filteredProducts={filteredProducts}
-          search={search}
         />
         <Footer />
       </div>

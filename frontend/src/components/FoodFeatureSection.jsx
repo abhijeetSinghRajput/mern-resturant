@@ -3,8 +3,9 @@ import FoodCard from "./FoodCard";
 import { Button } from "./ui/button";
 import FoodCardSkeleton from "./skeletons/FoodCardSkeleton";
 import { useProductStore } from "@/stores/useProductStore";
+import { CupSoda } from "lucide-react";
 
-const FoodFeatureSection = ({ filteredProducts, search }) => {
+const FoodFeatureSection = ({ filteredProducts }) => {
   const { isLoadingProducts, productsError, fetchProducts } = useProductStore();
 
   return (
@@ -28,7 +29,7 @@ const FoodFeatureSection = ({ filteredProducts, search }) => {
       </div>
 
       {isLoadingProducts ? (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(10)].map((_, i) => (
             <FoodCardSkeleton key={i} />
           ))}
@@ -45,17 +46,17 @@ const FoodFeatureSection = ({ filteredProducts, search }) => {
           </Button>
         </div>
       ) : filteredProducts.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((item) => (
             <FoodCard key={item._id} item={item} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {search
-              ? `No items found matching "${search}"`
-              : "No items available in this category"}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
+          <CupSoda className="size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium">No items in this category</p>
+          <p className="text-xs text-muted-foreground">
+            Try another category or add a new item.
           </p>
         </div>
       )}

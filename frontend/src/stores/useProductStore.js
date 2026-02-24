@@ -263,9 +263,7 @@ export const useProductStore = create((set, get) => {
         items: cart,
         subtotal,
         itemCount,
-        // Add tax (if needed), delivery, etc.
-        tax: Math.round((subtotal * 0.05) * 100) / 100, // 5% tax
-        total: Math.round((subtotal + (subtotal * 0.05)) * 100) / 100,
+        total: subtotal,
       };
     },
 

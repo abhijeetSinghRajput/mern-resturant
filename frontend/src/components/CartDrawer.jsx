@@ -41,7 +41,7 @@ export function CartDrawer({ open, onOpenChange }) {
   const [placing, setPlacing] = useState(false);
 
   const cartData = getCart();
-  const totalAmount = cartData.total;
+  const totalAmount = cartData.subtotal;
   const itemCount = cartData.itemCount;
 
   const handleClearCart = () => {
