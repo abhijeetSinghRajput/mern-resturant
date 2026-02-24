@@ -9,9 +9,12 @@ import { adminOnly, protectRoute } from "../middlewares/protectRoute.middleware.
 
 const router = express.Router();
 
+// Public: list food items
+router.get("/", getFoodItems);
+
+// Protected routes for admin only
 router.use(protectRoute, adminOnly);
 
-router.get("/", getFoodItems);
 router.post("/", createFoodItem);
 router.put("/:id", updateFoodItem);
 router.delete("/:id", deleteFoodItem);

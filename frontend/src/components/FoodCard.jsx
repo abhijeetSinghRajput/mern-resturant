@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Ban, Clock, Minus, Pizza, Plus, ShoppingCart } from "lucide-react";
@@ -8,28 +8,23 @@ import { useProductStore } from "@/stores/useProductStore";
 import { cn } from "@/lib/utils";
 
 const FoodCard = ({ item, className }) => {
-  const [quantity, setQuantity] = useState(0);
-  const { addToCart, removeFromCart, updateCartQuantity, cartError } =
+  const { addToCart, removeFromCart, updateCartQuantity, getCartItemQuantity, cartError } =
     useProductStore();
+
+  const quantity = getCartItemQuantity(item._id);
 
   const handleAddToCart = () => {
     addToCart(item._id, 1);
-    setQuantity(1);
   };
 
   const handleIncrement = () => {
-    const newQuantity = quantity + 1;
-    setQuantity(newQuantity);
-    updateCartQuantity(item._id, newQuantity);
+    updateCartQuantity(item._id, quantity + 1);
   };
 
   const handleDecrement = () => {
     if (quantity > 1) {
-      const newQuantity = quantity - 1;
-      setQuantity(newQuantity);
-      updateCartQuantity(item._id, newQuantity);
+      updateCartQuantity(item._id, quantity - 1);
     } else {
-      setQuantity(0);
       removeFromCart(item._id);
     }
   };

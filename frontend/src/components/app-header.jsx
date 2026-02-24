@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const AppHeader = () => {
+const AppHeader = ({ onCartClick }) => {
   return (
     <header className="sticky top-0 left-0 w-full border-b bg-background/90 backdrop-blur-sm z-50">
       <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between h-16">
@@ -39,7 +39,10 @@ const AppHeader = () => {
         <div className="flex items-center gap-3">
           <AuthUserDropdown />
 
-          <Button className="relative h-[38px] px-4 rounded-full bg-foreground text-background text-[13px] font-medium gap-2">
+          <Button
+            onClick={onCartClick}
+            className="relative h-[38px] px-4 rounded-full bg-foreground text-background text-[13px] font-medium gap-2"
+          >
             <ShoppingCart />
             <span>Cart</span>
           </Button>
