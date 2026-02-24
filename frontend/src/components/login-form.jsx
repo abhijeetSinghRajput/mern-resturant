@@ -108,7 +108,7 @@ export function LoginForm({ className, initialError = "", ...props }) {
                 <GoogleIcon className="!size-4" />
                 {loading ? "Signing in..." : "Login with Google"}
               </Button>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive border rounded-lg px-4 py-2 border-destructive/50 bg-destructive/10 text-center font-semibold">{error}</p>}
             </div>
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{" "}
